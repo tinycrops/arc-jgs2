@@ -1,6 +1,7 @@
+from arc_jgs2.grids import Component
 from arc_jgs2.loaders import Pair, Task, demo_tasks
 from arc_jgs2.orient import orient_task
-from arc_jgs2.solvers import solve_task
+from arc_jgs2.solvers import _select_component, solve_task
 
 
 def test_demo_orients_expected_top_families() -> None:
@@ -89,3 +90,115 @@ def test_solver_composes_rotation_and_scale() -> None:
 
     assert result.plan == "whole_grid_rotate90 -> scale:2x2"
     assert result.test_known_correct == 1
+
+
+def test_solver_keeps_largest_object_bbox() -> None:
+    task = Task(
+        task_id="keep_largest_demo",
+        train=(
+            Pair(input=[[0, 0, 0, 0], [0, 3, 3, 0], [0, 3, 3, 0], [5, 0, 0, 0]], output=[[3, 3], [3, 3]]),
+            Pair(input=[[0, 0, 0, 0, 0], [0, 2, 2, 2, 0], [0, 0, 0, 0, 0], [0, 0, 7, 0, 0]], output=[[2, 2, 2]]),
+        ),
+        test=(Pair(input=[[0, 0, 0], [0, 4, 4], [0, 4, 4]], output=[[4, 4], [4, 4]]),),
+        source="unit",
+    )
+
+    result = solve_task(task)
+
+    assert result.plan == "keep_largest_object_bbox"
+    assert result.test_known_correct == 1
+
+
+def test_solver_isolates_rarest_color() -> None:
+    task = Task(
+        task_id="isolate_rarest_demo",
+        train=(
+            Pair(
+                input=[[0, 1, 1, 0], [0, 1, 1, 0], [0, 0, 0, 2]],
+                output=[[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 2]],
+            ),
+            Pair(
+                input=[[0, 0, 6, 6, 6], [0, 0, 0, 0, 0], [0, 9, 0, 0, 0]],
+                output=[[0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 9, 0, 0, 0]],
+            ),
+        ),
+        test=(Pair(input=[[0, 5, 5, 0], [0, 0, 0, 3]], output=[[0, 0, 0, 0], [0, 0, 0, 3]]),),
+        source="unit",
+    )
+
+    result = solve_task(task)
+
+    assert result.plan == "isolate_rarest_color"
+    assert result.test_known_correct == 1
+
+
+def test_solver_recolors_by_size_rank_with_generalizing_tail_default() -> None:
+    task = Task(
+        task_id="recolor_rank_demo",
+        train=(
+            Pair(
+                input=[[0, 0, 0, 0, 0], [0, 3, 3, 3, 0], [0, 0, 0, 0, 0], [0, 3, 0, 0, 0], [0, 0, 0, 0, 0]],
+                output=[[0, 0, 0, 0, 0], [0, 8, 8, 8, 0], [0, 0, 0, 0, 0], [0, 9, 0, 0, 0], [0, 0, 0, 0, 0]],
+            ),
+            Pair(
+                input=[[0, 3, 3, 0, 0], [0, 3, 3, 0, 0], [0, 0, 0, 0, 0], [0, 3, 0, 0, 0], [0, 0, 0, 0, 0]],
+                output=[[0, 8, 8, 0, 0], [0, 8, 8, 0, 0], [0, 0, 0, 0, 0], [0, 9, 0, 0, 0], [0, 0, 0, 0, 0]],
+            ),
+            Pair(
+                input=[[0, 3, 0, 0, 0], [0, 0, 0, 0, 0], [0, 3, 3, 0, 0], [0, 0, 0, 0, 0], [3, 3, 3, 0, 0]],
+                output=[[0, 9, 0, 0, 0], [0, 0, 0, 0, 0], [0, 8, 8, 0, 0], [0, 0, 0, 0, 0], [8, 8, 8, 0, 0]],
+            ),
+        ),
+        test=(
+            Pair(
+                input=[[0, 3, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 3, 3, 0, 0, 0], [0, 0, 0, 0, 0, 0], [3, 3, 3, 0, 3, 3]],
+                output=[[0, 9, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 8, 8, 0, 0, 0], [0, 0, 0, 0, 0, 0], [8, 8, 8, 0, 8, 8]],
+            ),
+        ),
+        source="unit",
+    )
+
+    result = solve_task(task)
+
+    assert result.plan.startswith("recolor_by_size_rank:asc:")
+    assert result.test_known_correct == 1
+
+
+def test_solver_repairs_symmetric_grid_with_masked_hole() -> None:
+    base1 = [
+        [1, 2, 3, 3, 2, 1],
+        [4, 5, 6, 6, 5, 4],
+        [1, 4, 7, 7, 4, 1],
+        [2, 5, 8, 8, 5, 2],
+    ]
+    base2 = [[2, 1, 1, 2], [3, 4, 4, 3], [5, 6, 6, 5], [7, 8, 8, 7]]
+    in1 = [row[:] for row in base1]
+    in1[0][0] = in1[0][1] = in1[1][0] = in1[1][1] = 9
+    in2 = [row[:] for row in base2]
+    in2[1][1] = in2[2][1] = 9
+    test_base = [[1, 8, 8, 1], [7, 6, 6, 7], [5, 4, 4, 5], [3, 2, 2, 3]]
+    test_in = [row[:] for row in test_base]
+    test_in[0][0] = 9
+
+    task = Task(
+        task_id="symmetry_repair_demo",
+        train=(Pair(input=in1, output=base1), Pair(input=in2, output=base2)),
+        test=(Pair(input=test_in, output=test_base),),
+        source="unit",
+    )
+
+    result = solve_task(task)
+
+    assert result.plan == "symmetry_repair:mask=9"
+    assert result.test_known_correct == 1
+
+
+def test_select_component_refuses_ambiguous_tie() -> None:
+    tied = [
+        Component(color=1, cells=((0, 0),), bbox=(0, 0, 0, 0), shape=((0, 0),)),
+        Component(color=2, cells=((1, 1),), bbox=(1, 1, 1, 1), shape=((0, 0),)),
+    ]
+
+    assert _select_component(tied, "largest") is None
+    assert _select_component(tied, "smallest") is None
+    assert _select_component([], "largest") is None
