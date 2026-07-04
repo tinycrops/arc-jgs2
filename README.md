@@ -284,6 +284,83 @@ spectrum is the quotient; the disk is the coordinate system that makes both
 visible. The MNIST-1D Takens lens below is the same primitive applied to time
 instead of color.
 
+## Domain-Generalization Tests
+
+Does "find a nuisance realized as a group action, harvest invariants by
+harmonic analysis on the group" generalize past ARC, or is it an ARC-shaped
+curiosity? Three probes, aimed at falsifying it, prompted by asking whether
+it would help on [Terminal-Bench](https://www.tbench.ai/).
+
+**1. Terminal-Bench task survey.** Cloned `laude-institute/terminal-bench`
+(241 tasks) and read task instructions directly rather than guessing. Result:
+the primitive's precondition -- a small finite alphabet with an *arbitrary*
+labeling to quotient out -- is almost entirely absent. 230/241 tasks are
+bespoke engineering (COBOL reimplementation, kernel builds, log analysis,
+circuit synthesis) with no relabeling nuisance at all. Of the 11 tasks tagged
+`games`/puzzle, most are still bespoke (`ancient-puzzle` is a hardcoded
+string-equality check against a Flask endpoint -- zero algebraic structure).
+A genuine minority DO have it: `solve-sudoku` (digit relabeling is a real
+symmetry of Sudoku validity, exactly analogous to ARC color relabeling),
+`huarong-dao-solver` / `puzzle-solver` (sliding-block state spaces have a
+real dihedral board symmetry usable for BFS canonicalization, the same
+"quotient for search efficiency" idea as the gap ledger), `mahjong-winninghand`
+(suit permutation + number-line reversal is a richer symmetry group than
+ARC's plain cyclic one), and `feal-linear-cryptanalysis` (linear
+cryptanalysis's bias/correlation calculus IS harmonic analysis over GF(2)^n
+-- the professional version of exactly this primitive). `sha-puzzle` is a
+clean negative control: hash functions are explicitly engineered to destroy
+exploitable algebraic structure, so the primitive predicts zero traction
+there, correctly. Verdict: no, not as a general terminal-agent booster; yes,
+as a targeted tool for the minority of tasks that are secretly algebra.
+
+**2. ConceptARC** (`victorvikram/ConceptARC`, 160 tasks, different authors,
+designed to test whether solvers generalize a *concept* rather than pattern-
+match training pairs). Ran the actual `arc_jgs2` solver and wave gate
+unmodified, `python3 -m arc_jgs2 solve --data conceptarc/corpus --wave-veto`.
+Attempt rate drops hard (48/400 on ARC-1 training -> 8/160 here, ~12% ->
+~5%), expected: the primitive vocabulary is ARC-1-shaped and ConceptARC's
+tasks probe unfamiliar concepts. More important: the "one primitive explains
+every train pair -> zero wrong" guarantee -- rock solid on ARC-1 (49/50,
+19/19) -- **breaks here**: only 2 of 8 attempted tasks get all 3 held-out
+test variations right (11/24 known test cells correct overall). This is
+ConceptARC doing exactly its job -- it deliberately varies surface features
+across a concept's test cases to catch primitives that fit training pairs by
+coincidence rather than generalizing the concept. The wave gate did not
+catch any of it (0/8 flagged); inspecting the wrong predictions
+(`InsideOutside9`, plan `recolor_by_size_rank`, d_test=0.06 comfortably
+inside a band of [0, 0.17]) shows the exact blind spot already documented
+above reproducing on a completely different task corpus: co-rotation
+absorbs recoloring, so recolor-family errors are structurally invisible to
+the fingerprint regardless of which grids they come from.
+
+**3. Cross-domain cryptanalysis** (`analyze_cipher_domain.py`) -- zero code
+or data shared with ARC, a different alphabet size (Z_26, not Z_10), testing
+the primitive on its own oldest real precedent: Caesar-cipher frequency
+analysis already IS "quotient by a cyclic nuisance, harvest via harmonic
+analysis," a century before this repo existed. Self-consistency (recover an
+injected shift from one text's own DFT phase, no external table): 26/26
+exact -- the DFT-shift theorem holds. Realistic cross-text attack
+(reference profile calibrated on this repo's README, ciphertexts made from
+a disjoint sample -- the package docstrings -- at random shifts): the naive
+port using only the k=1 harmonic's phase FAILS (12-14/100), regardless of
+whether the reference came from the narrow README text or the canonical
+English frequency table -- one harmonic discards too much of the profile.
+Restoring the actual corpusfield.py design choice -- keep the *whole*
+spectrum, not one harmonic, done here as circular cross-correlation via all
+26 DFT bins (Wiener-Khinchin) -- recovers the exact shift 100/100 times,
+matching the classical chi-squared frequency search exactly, at roughly 34x
+lower cost per attack, because it is the correct closed-form realization of
+the same idea instead of an explicit 26-way search. Reference-corpus choice
+stopped mattering once the full spectrum was used.
+
+Honest summary: the primitive is real and portable -- it reproduced a
+century-old cryptanalytic technique from first principles and exposed the
+same failure mode across two unrelated corpora -- but it is not a generic
+intelligence upgrade. It pays off exactly where a domain secretly has an
+arbitrary-relabeling nuisance, is invisible where a domain has none (most of
+Terminal-Bench), and even inside its home domain (ARC) its guarantees are
+scoped to the training distribution they were built against (ConceptARC).
+
 ## Testbed: MNIST-1D (`arc_jgs2/mnist1d_lens.py`)
 
 `../mnist1d` (Greydanus & Kobak) is a cheap, continuous-signal testbed for the
