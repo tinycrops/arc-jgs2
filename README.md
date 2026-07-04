@@ -165,6 +165,23 @@ signal; but as a size-tiebreak they match the flat spectra (45.2% vs 45.5%),
 i.e. within size-ties the extra coupling adds nothing yet. Room render (1024^2,
 FFT convolution with the outgoing-wave kernel): `runs/corpus-field/wave_room.png`.
 
+### Per-Grid Wave Fingerprints (`arc_jgs2/wavefield.py`, `analyze_grid_waves.py`)
+
+The same far-field transform applied per grid (scan position ~ row becomes
+the radius, so the k-sweep probes vertical color layout). Two protocols over
+all 1302 train pairs:
+
+- **Pair retrieval** (input grid -> own output among 1302, chance 0.08%):
+  wave 11.1% beats flat spectra 8.6% standalone, and -- unlike at task scale
+  -- the wave features now also win *after* the size tiebreak (22.1% vs
+  20.7%, median rank 24 vs 26). The layout coupling earns its keep where
+  layout lives.
+- **Task cohesion** (nearest other input grid same-task, chance 0.2%): the
+  reversal -- flat spectra 21.2% beat wave 17.7%. Position-specific layout
+  varies across a task's examples, so the wave fingerprint is a *grid
+  identity* instrument while the flat spectrum is a *task style* instrument.
+  Different quotients for different questions; keep both.
+
 ### Serialization Headroom (`analyze_serialization.py`)
 
 Would a model that invents smarter grouping/stacking orders gain anything?
