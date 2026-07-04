@@ -142,6 +142,32 @@ the genuinely new adjacency signal), and for solved-vs-abstain the spectrum
 does not beat the size confound (best AUC 0.833 vs log-cells 0.827, n=17
 solved).
 
+### Step-Spectrum Gate (`analyze_step_gate.py`)
+
+`d_step` = distance between a task's input-stack and output-stack step
+spectra. The gate hypothesis ("low d_step = rearrangement family") came with
+three predictions; scoreboard:
+
+- "Solver-family tasks sit in the low tail" **lost** as stated (AUC 0.555 ~
+  chance) but decomposed exactly along representational lines: global
+  color-map tasks conserve the spectrum *exactly* (median 0.000 -- role
+  co-rotation absorbs recoloring, as designed), geometric transforms nearly
+  (0.20), crop *breaks* it (0.90 -- the output is a different boundary
+  regime). The gate sorts by transformation *type*, not solver reach.
+- "object_count_shift tasks have higher d_step" won: AUC 0.679, rising to
+  0.714 with the resize confound stratified out.
+- "palette_shift should NOT raise d_step" mostly won: AUC 0.580 stratified,
+  far below count-shift -- co-rotation absorbs most of recoloring.
+
+Payoff: 13 abstained tasks have d_step exactly 0. Component-level checking
+splits them into two coherent missing-primitive families: **pure object
+motion** (`5521c0d9`, `dc433765`, `05f2a901`: every train pair conserves the
+exact color+shape multiset, objects only move) and **relational recolor**
+(`85c4e7cd`, `bda2d7a6`, `f76d97a5`: spectra conserved, shapes swap colors;
+independently tagged `color_role_candidate` by the orienter). Those two
+primitives are the next vocabulary additions. Chart:
+`runs/corpus-field/step_gate.png`.
+
 The distilled primitive, stated once: **find coordinates in which a nuisance
 becomes a group action with a geometric realization, then harvest invariants
 by harmonic analysis on the group.** The +9 rotations are the orbit; the
