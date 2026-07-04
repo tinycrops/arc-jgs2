@@ -142,6 +142,23 @@ the genuinely new adjacency signal), and for solved-vs-abstain the spectrum
 does not beat the size confound (best AUC 0.833 vs log-cells 0.827, n=17
 solved).
 
+### Serialization Headroom (`analyze_serialization.py`)
+
+Would a model that invents smarter grouping/stacking orders gain anything?
+Everything scored downstream is order-invariant by construction, so the only
+objective where ordering can matter is description length (MDL). Measured on
+the 316k-cell stream: the best constructed grouping (greedy nearest-neighbor
+chain in task-spectrum space) beats dataset order by just **2.0%** on zlib and
+lzma alike; an online adaptive bigram coder gains **0.000 bits/cell** (a
+low-order model saturates regardless of order); junction arc moves 0.06%.
+Dataset order measures identical to random shuffle, confirming hash-order is
+already a random control. Meanwhile the within-grid scan axis moves the
+numbers as much or more in *both* directions (boustrophedon: -1.0% bigram but
++5.7% lzma), and the bigram-vs-lzma gap (1.20 vs 0.81 bits/cell) says most
+structure is longer-range than any ordering fix. Verdict: a grouping-inventor
+model has ~2% headroom -- not worth building; the bits live inside grids and
+in better sequential models, not in the stacking order.
+
 ### Step-Spectrum Gate (`analyze_step_gate.py`)
 
 `d_step` = distance between a task's input-stack and output-stack step
