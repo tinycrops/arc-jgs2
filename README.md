@@ -182,6 +182,32 @@ all 1302 train pairs:
   identity* instrument while the flat spectrum is a *task style* instrument.
   Different quotients for different questions; keep both.
 
+### Animations (`render_animations.py`)
+
+Four GIFs in `runs/corpus-field/`, each visualizing a claim already measured
+statically above -- no new experiments, just motion:
+
+- `corpus_disk_spin.gif` -- the rotation orbit made continuous: the 10
+  discrete color-invariant formations are frames of one continuous rigid spin
+  of the corpus disk, sampled every 4 degrees.
+- `wave_room_spin.gif` -- the interference pattern rotating. u(x) depends
+  only on source positions, so rotating every source by theta rotates the
+  whole field by theta exactly -- true for ANY continuous theta, not just the
+  10 color-cyclic angles (those are the subset that also double as valid
+  recolorings). Rendered by rotating the precomputed magnitude image, not
+  resimulating 316k sources per frame.
+- `wave_room_buildup.gif` -- sources switching on in radius order (corpus
+  position order), the literal "light from a point source, run backward"
+  image from the original request. Cumulative FFT convolution, cheap because
+  histogram accumulation is cheap and only the convolution reruns per frame.
+- `wave_k_sweep_007bbfb7.gif` -- one real ARC grid's far field as the
+  wavenumber sweeps low to high and back: fringe spacing visibly shrinks as
+  k grows, the "dial" the wave-room section describes.
+
+All four quantize to a single shared palette with no dithering (smooth
+gradients dither-bloat badly under independent per-frame palettes -- this cut
+file sizes 4-6x with no visible quality loss).
+
 ### Wave-Consistency Gate in the Solver (`arc_jgs2/wavecheck.py`)
 
 The fingerprint check is wired into `solve_task` as a damper: every train
