@@ -142,6 +142,29 @@ the genuinely new adjacency signal), and for solved-vs-abstain the spectrum
 does not beat the size confound (best AUC 0.833 vs log-cells 0.827, n=17
 solved).
 
+### Wave Room: Node/Antinode Analysis (`analyze_wave_field.py`)
+
+Treat every cell of the radial disk as a coherent monochromatic point source
+(scalar Huygens) and propagate: u(x) = sum exp(ik|x-p_j|)/sqrt(|x-p_j|).
+What the node/antinode analysis IS, exactly (Jacobi-Anger): the m-th angular
+mode of the field at wavenumber k is the m-th DFT of a **Bessel-weighted
+occupancy profile** sum_s e^{2pi i m s/10} sum_{j in s} J_m(k r_j). At long
+wavelengths this collapses to the flat occupancy spectrum already in use;
+sweeping k dials in *where along the corpus* each color's mass sits. The wave
+picture is therefore a position x color joint transform whose magnitudes
+inherit the recolor invariance -- recoloring rotates the whole interference
+pattern rigidly and changes nothing else (and since recoloring produces a
+point set exactly congruent to the rotated original, any measured difference
+in nodal statistics is pure grid discretization: ~1% on coarse stats, ~9% on
+the near-silent nodal area, the most alias-sensitive set).
+
+Measured: multi-k far-field magnitudes |A_m(k)| (k = 2pi x {1,2,4,8}, m =
+0..10) beat the flat spectra on own-output retrieval standalone -- 17.5% vs
+14.2% top-1 -- so the radial (position-color) coupling carries real identity
+signal; but as a size-tiebreak they match the flat spectra (45.2% vs 45.5%),
+i.e. within size-ties the extra coupling adds nothing yet. Room render (1024^2,
+FFT convolution with the outgoing-wave kernel): `runs/corpus-field/wave_room.png`.
+
 ### Serialization Headroom (`analyze_serialization.py`)
 
 Would a model that invents smarter grouping/stacking orders gain anything?
