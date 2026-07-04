@@ -151,15 +151,38 @@ def _cell_score(grids: tuple[Grid, ...], train: list[Pair]) -> float:
 
 
 def _consistent_color_op(grids: tuple[Grid, ...], train: list[Pair]) -> PlanOp | None:
-    mappings = [_infer_color_map_grids(grid, pair.output) for grid, pair in zip(grids, train) if pair.output is not None]
-    if not mappings or any(mapping is None for mapping in mappings):
+    # Merge the per-pair color maps into one union map. Different train pairs
+    # usually expose different color subsets (a swap task shows a->b in one pair
+    # and b->a in another), so requiring identical per-pair maps misses tasks a
+    # single global map fully explains. We accept the union only if it is
+    # self-consistent, non-identity, and reproduces every train output.
+    union: dict[int, int] = {}
+    saw_pair = False
+    for grid, pair in zip(grids, train):
+        if pair.output is None:
+            continue
+        mapping = _infer_color_map_grids(grid, pair.output)
+        if mapping is None:
+            return None
+        for src, dst in mapping.items():
+            if src in union and union[src] != dst:
+                return None
+            union[src] = dst
+        saw_pair = True
+    if not saw_pair or all(src == dst for src, dst in union.items()):
         return None
-    first = mappings[0] or {}
-    if not all(mapping == first for mapping in mappings):
+    # Overshoot guard: a genuine relabel/swap is injective. When two remapped
+    # colors collapse onto one destination, the "consistent" union is usually an
+    # accident assembled from disjoint per-pair evidence (e.g. a relational
+    # recolor mistaken for a global map) -- it fits every train pair yet is the
+    # wrong abstraction. Abstain rather than commit to it.
+    remapped = {src: dst for src, dst in union.items() if src != dst}
+    if len(set(remapped.values())) < len(remapped):
         return None
-    if all(all(src == dst for src, dst in (mapping or {}).items()) for mapping in mappings):
-        return None
-    return PlanOp(f"global_color_map:{first}", lambda grid, mapping=first: _apply_color_map(grid, mapping))
+    for grid, pair in zip(grids, train):
+        if pair.output is not None and _apply_color_map(grid, union) != pair.output:
+            return None
+    return PlanOp(f"global_color_map:{union}", lambda grid, mapping=union: _apply_color_map(grid, mapping))
 
 
 def _consistent_scale_op(grids: tuple[Grid, ...], train: list[Pair]) -> PlanOp | None:

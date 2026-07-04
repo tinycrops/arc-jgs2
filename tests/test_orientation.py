@@ -34,6 +34,46 @@ def test_solver_composes_crop_and_color_map() -> None:
     assert result.test_known_correct == 1
 
 
+def test_solver_merges_compatible_per_pair_color_maps() -> None:
+    # Each pair exposes a different subset of a single global color swap
+    # (1<->2, 3<->4). No single pair reveals the whole map, and the per-pair
+    # maps are not identical, so the old identical-map rule would abstain.
+    task = Task(
+        task_id="color_swap_union",
+        train=(
+            Pair(input=[[1, 0], [0, 3]], output=[[2, 0], [0, 4]]),
+            Pair(input=[[2, 3], [4, 1]], output=[[1, 4], [3, 2]]),
+        ),
+        test=(Pair(input=[[3, 1], [2, 4]], output=[[4, 2], [1, 3]]),),
+        source="unit",
+    )
+
+    result = solve_task(task)
+
+    assert result.plan.startswith("global_color_map")
+    assert result.test_known_correct == 1
+
+
+def test_solver_abstains_on_collapsing_color_map() -> None:
+    # Two train pairs with disjoint non-background colors. A union map is
+    # vacuously "consistent" (2->4,4->0 vs 3->6,6->0) and reproduces both train
+    # outputs, but it collapses 4 and 6 onto 0 -- a relational recolor mistaken
+    # for a global map. The injectivity guard must make the solver abstain.
+    task = Task(
+        task_id="collapsing_color_map",
+        train=(
+            Pair(input=[[0, 2], [4, 0]], output=[[0, 4], [0, 0]]),
+            Pair(input=[[0, 3], [6, 0]], output=[[0, 6], [0, 0]]),
+        ),
+        test=(Pair(input=[[0, 2], [8, 0]], output=[[0, 2], [0, 0]]),),
+        source="unit",
+    )
+
+    result = solve_task(task)
+
+    assert result.plan == "abstain"
+
+
 def test_solver_composes_rotation_and_scale() -> None:
     task = Task(
         task_id="rotate_then_scale",
