@@ -102,6 +102,53 @@ train pair; otherwise abstain so overshoot stays visible). The union color-map +
 its overshoot guard is the first primitive found this way (training 14 -> 17
 solved, still zero wrong predictions).
 
+## Corpus Rotation Orbit & Radial Field (`arc_jgs2/corpusfield.py`)
+
+Stack every train grid of the whole dataset into ONE cylinder polyline
+(316,468 cells for ARC-1 training) and rotate it about the cylinder axis by
+k*36 degrees. Theorem, verified at full-corpus scale (`analyze_corpus_field.py`,
+`tests/test_corpusfield.py`): the rotation is *exactly* the same object as
+adding +k (mod 10) to every color-role slot, and because it is a rigid motion,
+arc length and curvature are bit-identical across all ten rotations and
+|torsion| matches to 5e-9. Ten formations -- nine non-identity -- one shape:
+the cyclic part of color relabeling turned from a nuisance into a geometric
+symmetry. (Estimator caveat: *signed* torsion jitters ~0.2% across rotations,
+not because the theorem fails but because the polyline lives on a quantized
+angle lattice where consecutive binormals are often exactly antiparallel, so
+the sign is float noise. Honest boundary: the cylinder geometrizes Z_10, the
+cyclic shifts; the rest of S_10 is handled approximately by role order.)
+
+The useful quotient of the orbit is the same move crystallography, image
+registration (Fourier-Mellin), and invariant theory all use: once a nuisance
+acts by rotation, the DFT magnitudes of any per-slot profile are invariant
+under it. Six numbers per profile (occupancy and step-transition spectra,
+size-normalized) summarize a task up to recoloring.
+
+The radial field makes the symmetry literal: re-embed the corpus sequence in a
+disk -- position 0 at the outer rim, the last cell at the origin, angle = color
+slot (light from a point source, run backward). The two polar coordinates
+factor the two nuisances: recoloring is a rotation of the image, corpus
+position is wavefront radius. Renders in `runs/corpus-field/` via
+`render_corpus_field.py`.
+
+Measured payoff (`analyze_corpus_field.py`, tie-aware ranks): a task's
+input-stack spectrum retrieves its OWN output-stack among all 400 at 14% top-1
+(chance 0.25%) -- the invariant profile partly survives each task's
+transformation. Grid size alone gets 28%, but it is blind within size-ties;
+using the spectrum only to break size ties lifts top-1 to 46% and median rank
+6 -> 2. Confounds stated: role order already sorts colors by frequency, so the
+occupancy spectrum adds little over a sorted histogram (the step spectrum is
+the genuinely new adjacency signal), and for solved-vs-abstain the spectrum
+does not beat the size confound (best AUC 0.833 vs log-cells 0.827, n=17
+solved).
+
+The distilled primitive, stated once: **find coordinates in which a nuisance
+becomes a group action with a geometric realization, then harvest invariants
+by harmonic analysis on the group.** The +9 rotations are the orbit; the
+spectrum is the quotient; the disk is the coordinate system that makes both
+visible. The MNIST-1D Takens lens below is the same primitive applied to time
+instead of color.
+
 ## Testbed: MNIST-1D (`arc_jgs2/mnist1d_lens.py`)
 
 `../mnist1d` (Greydanus & Kobak) is a cheap, continuous-signal testbed for the
