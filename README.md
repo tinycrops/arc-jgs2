@@ -361,6 +361,35 @@ arbitrary-relabeling nuisance, is invisible where a domain has none (most of
 Terminal-Bench), and even inside its home domain (ARC) its guarantees are
 scoped to the training distribution they were built against (ConceptARC).
 
+## Testbed: Sudoku Digit Relabeling (`arc_jgs2/sudoku.py`)
+
+The Terminal-Bench survey above named `solve-sudoku` as one of the rare
+tasks with a REAL relabeling nuisance -- unlike ARC color (an assumption we
+impose), permuting Sudoku's digits 1-9 by any bijection turns a valid puzzle
+into another valid one, exactly, because every constraint is "all different"
+and never a specific digit. This module wires that symmetry in as working
+code, not just an analysis: `canonicalize`/`infer_relabeling` mirror
+`linefeatures.role_order` and `solvers._infer_color_map_grids`; `solve` is a
+real constraint-propagation + backtracking solver (naked singles, hidden
+singles, MRV branching); `SudokuCache` is the payoff -- solve a puzzle's
+canonical form once, reuse the solution for every relabeled duplicate,
+mapped back through the inverse of that instance's own relabeling. 13 tests
+in `tests/test_sudoku.py`, including an end-to-end invariance test that the
+symmetry survives all the way through backtracking, not just canonicalization.
+
+`analyze_sudoku_cache.py` measures the payoff at the scope where it actually
+applies: the scenario is a casual app that reuses a small library of vetted
+hole-pattern templates and stamps a random digit relabeling on each serving
+for cheap "freshness." On 6 templates x 15 relabeled instances (90 puzzles),
+the cache collapses 90 solves to 6 (12x wall-clock speedup, results verified
+self-consistent and valid -- not bitwise-equal to an independent solve,
+since 36-given puzzles aren't guaranteed unique, so two correct solvers can
+legitimately land on two different valid completions). A control corpus
+built from the same base grids but with an independently random hole
+pattern per instance (no shared template) gets no cache hits at all (90/90
+solved) -- the same code, correctly getting zero benefit outside its actual
+scope, run explicitly rather than just asserted.
+
 ## Testbed: MNIST-1D (`arc_jgs2/mnist1d_lens.py`)
 
 `../mnist1d` (Greydanus & Kobak) is a cheap, continuous-signal testbed for the
