@@ -102,5 +102,34 @@ train pair; otherwise abstain so overshoot stays visible). The union color-map +
 its overshoot guard is the first primitive found this way (training 14 -> 17
 solved, still zero wrong predictions).
 
+## Testbed: MNIST-1D (`arc_jgs2/mnist1d_lens.py`)
+
+`../mnist1d` (Greydanus & Kobak) is a cheap, continuous-signal testbed for the
+same question: does lifting a sequence to 3D to expose hidden shape carry
+predictive signal? ARC grids are discrete symbol sequences with no natural 3D
+shape, so they're lifted onto a color-wheel cylinder. MNIST-1D signals are
+already continuous curves, so the matching lift is a **Takens delay embedding**
+`(x[t], x[t+tau], x[t+2*tau])` -- the standard nonlinear-dynamics trick for
+recovering a scalar time series' shape -- read off with the exact same
+`frenet_stats` Frenet invariants (factored out of `linefeatures.py` for reuse).
+
+Question: does delay-embedded curvature/torsion distance between two digit
+*templates* predict how often a real classifier confuses them (the MNIST-1D
+analog of "geometry predicts ARC solvability")? Honest finding, stable across
+tau in {1, 2, 3}: **no** -- geometric distance barely correlates with confusion
+(Spearman ~0), while trivial raw-amplitude distance between templates
+correlates strongly (~0.9). Confusion here is dominated by literal amplitude
+overlap under the dataset's heavy translation/noise augmentation, not by
+qualitative curve shape.
+
+The invariants did earn their correctness, though: they exactly detected that
+templates 0/6, 1/7, and 3/8 are amplitude-mirror pairs (`x -> 10-x` in the raw
+templates, i.e. `x -> -x` after whitening) -- curvature (even under reflection)
+matches exactly, and torsion (a chirality-sensitive pseudoscalar) flips sign for
+the one pair whose curve isn't planar. That's the Frenet math behaving exactly
+as differential geometry says it should, on a real, previously-unremarked
+structural fact about the template set -- just not the fact this experiment
+went looking for.
+
 The next step is to add an iterative hypothesis engine that accepts, dampens, or
 rejects primitive perturbations using the witness fields emitted here.

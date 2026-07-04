@@ -76,21 +76,27 @@ class PolyGeom:
     mean_abs_torsion: float
 
 
-def _polyline_geometry(slots: list[int]) -> PolyGeom:
-    """Arc length, turning, and discrete Frenet curvature/torsion of the polyline."""
-    n = len(slots)
+def frenet_stats(points: list[tuple[float, float, float]]) -> PolyGeom:
+    """Arc length, turning, and discrete Frenet curvature/torsion of a 3D polyline.
+
+    Generic over how the points were lifted to 3D -- used both for the
+    color-wheel cylinder embedding of ARC grids (see `_points`) and, in
+    `mnist1d_lens.py`, for a Takens delay embedding of a 1D signal. Both are
+    the same move: a sequence with no visible 3D shape gets one imposed by a
+    principled, invariant coordinate lift, and the shape is read off with the
+    same Frenet invariants.
+    """
+    n = len(points)
     if n < 2:
         return PolyGeom(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
-    steps = [math.sqrt(1.0 + _chord(slots[i], slots[i + 1]) ** 2) for i in range(n - 1)]
-    arc_length = sum(steps)
-    mean_step = arc_length / len(steps)
-
-    points = _points(slots)
     segs = [
         (points[i + 1][0] - points[i][0], points[i + 1][1] - points[i][1], points[i + 1][2] - points[i][2])
         for i in range(n - 1)
     ]
+    seg_lens = [_norm(s) for s in segs]
+    arc_length = sum(seg_lens)
+    mean_step = arc_length / len(segs) if segs else 0.0
 
     turns: list[float] = []
     curvs: list[float] = []
@@ -209,8 +215,8 @@ def compute_line_features(grid: Grid) -> LineFeatures:
     total = sum(counts.values())
     entropy = -sum((c / total) * math.log2(c / total) for c in counts.values() if c > 0) if total else 0.0
 
-    row = _polyline_geometry(row_slots)
-    col = _polyline_geometry(col_slots)
+    row = frenet_stats(_points(row_slots))
+    col = frenet_stats(_points(col_slots))
 
     # still-runs along row-major order
     max_zero_run = zero_run = 0
