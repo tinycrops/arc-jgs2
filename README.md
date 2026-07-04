@@ -182,6 +182,32 @@ all 1302 train pairs:
   identity* instrument while the flat spectrum is a *task style* instrument.
   Different quotients for different questions; keep both.
 
+### Wave-Consistency Gate in the Solver (`arc_jgs2/wavecheck.py`)
+
+The fingerprint check is wired into `solve_task` as a damper: every train
+pair's fingerprint distance gives the task's transformation **band** [lo, hi];
+a test prediction must move its pair a comparable distance. `solve` annotates
+every prediction (`wave_ok`, `wave_flags`) and `--wave-veto` turns out-of-band
+predictions into abstentions -- the gate can only remove predictions, so the
+zero-wrong rule is preserved by construction.
+
+Calibration (`analyze_wave_veto.py`) against materialized overshoot
+candidates (61 wrong / 57 correct gradable predictions) found the failure
+mode INVERTED from the naive guess: wrong predictions are mostly too *timid*
+(they under-move the test pair; one-sided envelope AUC 0.288), so the check
+is two-sided. At margin 1.25 / slack 0.10 it catches 11/61 wrong predictions
+with 0/57 correct vetoed (slack covers legitimate fingerprint motion when a
+recolor reorders role frequencies, observed on d511f180).
+
+Live verification: training 48 attempted / 49-of-50 correct, evaluation 17
+attempted / 19-of-19 -- zero flags, zero vetoes, nothing lost. Known blind
+spot, stated plainly: the solver's one wrong training prediction (b230c067, a
+relational recolor) sits mid-band at d=0.030 -- co-rotation absorbs
+recoloring, so recoloring *errors* are invisible to the fingerprint. The
+quotient that grants the invariance is exactly the direction the check cannot
+police; a recolor-sensitive witness (e.g. exact color-map verification) has
+to cover that axis.
+
 ### Serialization Headroom (`analyze_serialization.py`)
 
 Would a model that invents smarter grouping/stacking orders gain anything?

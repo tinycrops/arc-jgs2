@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import json
 from collections import Counter
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Callable
 
@@ -23,6 +23,7 @@ from .grids import (
     transforms,
 )
 from .loaders import Pair, Task
+from .wavecheck import wave_consistency
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,10 @@ class SolveResult:
     test_known_correct: int
     source: str
     confidence_pruned: int = 0
+    # wave-fingerprint consistency gate (arc_jgs2.wavecheck)
+    wave_ok: bool = True
+    wave_flags: tuple[str, ...] = ()
+    wave_vetoed_plan: str = ""
 
     @property
     def solved_known_tests(self) -> bool:
@@ -1021,14 +1026,40 @@ def _search_plan(task: Task, max_depth: int = 4, beam_width: int = 48) -> SolveR
     return _result(task, "abstain", [], _exact_support(best.train_grids, train), pruned)
 
 
-def solve_task(task: Task) -> SolveResult:
-    return _search_plan(task)
+def apply_wave_gate(result: SolveResult, task: Task, veto: bool = False) -> SolveResult:
+    """Annotate a result with the wave-fingerprint consistency check; with
+    veto=True, out-of-band predictions become abstentions (the check can only
+    remove predictions, never create them)."""
+    if result.plan == "abstain" or not result.predictions:
+        return result
+    train = [p for p in task.train if p.output is not None]
+    flags = tuple(
+        wave_consistency(train, pair.input, prediction).reason
+        for pair, prediction in zip(task.test, result.predictions)
+    )
+    ok = all(flag == "" for flag in flags)
+    if ok or not veto:
+        return replace(result, wave_ok=ok, wave_flags=flags)
+    return replace(
+        result,
+        plan="abstain",
+        predictions=[],
+        test_known_total=0,
+        test_known_correct=0,
+        wave_ok=False,
+        wave_flags=flags,
+        wave_vetoed_plan=result.plan,
+    )
 
 
-def write_solutions(tasks: list[Task], out_dir: str | Path) -> list[SolveResult]:
+def solve_task(task: Task, wave_veto: bool = False) -> SolveResult:
+    return apply_wave_gate(_search_plan(task), task, veto=wave_veto)
+
+
+def write_solutions(tasks: list[Task], out_dir: str | Path, wave_veto: bool = False) -> list[SolveResult]:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    results = [solve_task(task) for task in tasks]
+    results = [solve_task(task, wave_veto=wave_veto) for task in tasks]
 
     with (out / "solutions.jsonl").open("w") as f:
         for result in results:
@@ -1047,6 +1078,8 @@ def write_solutions(tasks: list[Task], out_dir: str | Path) -> list[SolveResult]
                 "test_known_correct",
                 "source",
                 "confidence_pruned",
+                "wave_ok",
+                "wave_vetoed_plan",
             ],
         )
         writer.writeheader()
@@ -1062,6 +1095,8 @@ def write_solutions(tasks: list[Task], out_dir: str | Path) -> list[SolveResult]
                     "test_known_correct": result.test_known_correct,
                     "source": result.source,
                     "confidence_pruned": result.confidence_pruned,
+                    "wave_ok": result.wave_ok,
+                    "wave_vetoed_plan": result.wave_vetoed_plan,
                 }
             )
 
@@ -1073,6 +1108,8 @@ def write_solutions(tasks: list[Task], out_dir: str | Path) -> list[SolveResult]
         "known_test_correct": sum(result.test_known_correct for result in results),
         "known_tasks_all_correct": sum(1 for result in results if result.solved_known_tests),
         "confidence_pruned_total": sum(result.confidence_pruned for result in results),
+        "wave_flagged": sum(1 for result in results if not result.wave_ok),
+        "wave_vetoed": sum(1 for result in results if result.wave_vetoed_plan),
     }
     ground_truth = [_all_known_correct(result.predictions, task) for result, task in zip(results, tasks)]
     gt_total = sum(total for total, _, _ in ground_truth)

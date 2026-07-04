@@ -24,6 +24,11 @@ def main() -> None:
     solve.add_argument("--out", type=Path, default=Path("runs/solutions"), help="Output directory.")
     solve.add_argument("--demo", action="store_true", help="Use built-in demo tasks.")
     solve.add_argument("--limit", type=int, help="Limit number of tasks for a smoke run.")
+    solve.add_argument(
+        "--wave-veto",
+        action="store_true",
+        help="Abstain on predictions whose wave-fingerprint motion leaves the train band.",
+    )
 
     args = parser.parse_args()
     if args.cmd == "orient":
@@ -47,7 +52,7 @@ def main() -> None:
             raise SystemExit("Pass --data PATH or --demo.")
         if args.limit is not None:
             tasks = tasks[: args.limit]
-        results = write_solutions(tasks, args.out)
+        results = write_solutions(tasks, args.out, wave_veto=args.wave_veto)
         attempted = sum(1 for result in results if result.plan != "abstain")
         print(f"solved/attempted {attempted}/{len(results)} tasks -> {args.out}")
 
